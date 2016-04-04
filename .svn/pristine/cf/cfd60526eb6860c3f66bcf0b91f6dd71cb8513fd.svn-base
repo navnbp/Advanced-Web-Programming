@@ -1,0 +1,863 @@
+package cs520.web.controller;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.support.DefaultMultipartHttpServletRequest;
+
+import cs520.model.Application;
+import cs520.model.ApplicationStatus;
+import cs520.model.Department;
+import cs520.model.DepartmentAdditionalFields;
+import cs520.model.Program;
+import cs520.model.StudentAcademicRecord;
+import cs520.model.StudentAdditionalRecords;
+import cs520.model.StudentEducationalBackground;
+import cs520.model.StudentInformation;
+import cs520.model.User;
+import cs520.model.appStatus;
+import cs520.model.dao.ApplicationDao;
+import cs520.model.dao.ApplicationStatusDao;
+import cs520.model.dao.DepartmentDao;
+import cs520.model.dao.ProgramDao;
+import cs520.model.dao.StudentAdditionalRecordsDao;
+import cs520.model.dao.StudentEducationalBackgroundDao;
+import cs520.model.dao.StudentInformationDao;
+import cs520.model.dao.UserDao;
+import cs520.model.dao.jpa.ApplicationStatusDaoImpl;
+
+@Controller
+public class StudentInformationController {
+
+	@Autowired
+	private ServletContext context;
+	
+	@Autowired
+    private StudentInformationDao studentInfoDao;
+	
+	@Autowired
+    private UserDao userDao;
+	
+	@Autowired
+    private DepartmentDao deptDao;
+	
+	@Autowired
+    private ProgramDao programDao;
+	
+	@Autowired
+	private ApplicationStatusDao appStatusDao;
+	
+
+	@Autowired
+	private ApplicationDao applicationDao;
+	
+	@Autowired
+	private StudentEducationalBackgroundDao educationBackgroundDao ;
+	
+	@Autowired
+	private StudentAdditionalRecordsDao studentAdditionalRecordDao;
+	
+	
+	@RequestMapping(value="/student/home.html")
+	public String studentHome(ModelMap models,HttpServletRequest request )
+	{
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+		
+		models.put("studentLst", usr.getStudentInformation());
+		request.getSession().setAttribute("sessionStudentLst", usr.getStudentInformation());
+		/*if(stuInfo==null){
+			StudentInformation info=new StudentInformation();
+			info.setFirstName(usr.getFirstName());
+			info.setLastName(usr.getLastName());
+			info.setEmail(usr.getEmailId());
+			models.put("studentInfo", info);
+			return "student/addStudentInfo";
+		}
+		else 
+			{
+			request.getSession().setAttribute("sessionStudentInfo", stuInfo);
+			models.put("stuInfo", stuInfo);
+			}*/
+
+		return "/student/home";
+	}
+	
+	private File getFileDirectory( String dirName)
+	{
+		if(! new File(context.getRealPath(dirName)).exists())
+		{
+			new File(context.getRealPath(dirName)).mkdir();
+		}
+		return new File(context.getRealPath(dirName));
+	}
+	
+	@RequestMapping(value = "/student/viewFile.html", method = RequestMethod.GET)
+	public String viewFile(@RequestParam Integer id, @RequestParam String file, HttpSession session, HttpServletRequest request, HttpServletResponse response) 
+	{
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+		
+		usr=userDao.getUser(usr.getId());
+		
+		response.setContentType( "" );
+        response.setHeader( "Content-Disposition","inline; filename="+file );
+
+		
+		/*Application app=null;
+		try{
+//			stuInfo=studentInfoDao.getStudentInfo(Integer.parseInt(request.getSession().getAttribute("sessionStudentId").toString()));
+			app=applicationDao.getApplication(id);
+		}catch(Exception e)	{}
+		*/
+		
+	
+	
+        	String fname="/WEB-INF/files/"+usr.getFirstName().trim()+"_"+usr.getLastName().trim()+"/"+id;
+        try{
+	     	FileInputStream in = new FileInputStream(new File(context.getRealPath(fname ),file));
+			OutputStream out = response.getOutputStream();
+			byte buffer[] = new byte[6144];
+			int bytesRead;
+			while ((bytesRead = in.read(buffer)) > 0)
+			{
+				out.write(buffer, 0, bytesRead);
+			}
+			in.close();
+        }catch(Exception e){}
+        
+		return null;
+	
+	}
+	
+	@RequestMapping(value="/student/addNewApplication.html",method=RequestMethod.GET)
+	public String addNewApplication(ModelMap models,HttpServletRequest request )
+	{
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+
+		request.getSession().setAttribute("sessionStudentId",null);
+		request.getSession().setAttribute("sessionApplicationId",null);
+		
+		models.put("dept", deptDao.getDepartments());
+		models.put("app", new Application());
+		return "/student/addNewApplication";
+	}
+	
+	@RequestMapping(value = "/student/getPrograms.html")
+	@ResponseBody
+    public String getProgramsByDepartment(@RequestParam(value = "id") Integer id, HttpServletResponse response) 
+    {
+		
+		Department dept = deptDao.getDepartment(id);
+		String html = "<hr/>&nbsp;&nbsp;&nbsp;&nbsp;<b>Program</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
+		html += "<select name = 'program' class='textbox' id = 'program' style='width: 250px;'>";
+			for (Program p : dept.getPrograms())
+			{
+				html += "<option value = '"+p.getId()+"'>"+p.getName()+"</option>";
+			}
+			html += "</select>";
+			
+			return html;
+    } 
+	
+	@RequestMapping(value="/student/addNewApplication.html",method=RequestMethod.POST)
+	public String addNewApplicationPost(ModelMap models,HttpServletRequest request )
+	{ 
+
+		
+		Application app= new Application();
+		app.setDept(deptDao.getDepartment(Integer.parseInt(request.getParameter("dept"))));
+		app.setProgram(programDao.getProgram(Integer.parseInt(request.getParameter("hdnProg"))));
+		app.setTerm(request.getParameter("term"));
+		app.setStatus(appStatusDao.getApplicationStatus(appStatus.Saved.getValue()));
+		app=applicationDao.addApplication(app);
+		request.getSession().setAttribute("sessionApplicationId", app.getId());
+		
+
+		models.put("applicationId", app.getId());
+		models.put("studentInfo", new StudentInformation());
+		
+		return "/student/studentInformation";
+		
+		
+	
+	}
+	
+	
+	@RequestMapping(value="/student/editApplication/{id}.html",method=RequestMethod.GET)
+	public String editApplication(@PathVariable Integer id,ModelMap models,HttpServletRequest request)
+	{
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+		
+		StudentInformation info=studentInfoDao.getStudentInfo(id);
+	List<Program> progs=deptDao.getDepartment(info.getApplication().getDept().getId()).getPrograms();
+		models.put("application", info.getApplication());
+		models.put("program",progs );
+		
+		request.getSession().setAttribute("sessionApplicationId", info.getApplication().getId());
+		request.getSession().setAttribute("sessionStudentId",id);
+		
+		return "/student/editApplication";
+	}
+	
+	
+	@RequestMapping(value="/student/editApplication.html",method=RequestMethod.POST)
+	public String editApplication(@ModelAttribute Application application,ModelMap models,HttpServletRequest request)
+	{
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+		
+		request.getSession().setAttribute("sessionApplicationId", request.getParameter("hdnApplicationId"));
+		
+		application=applicationDao.getApplication(Integer.parseInt(request.getParameter("hdnApplicationId")));
+		StudentInformation stuInfo=studentInfoDao.getStudentInfo(Integer.parseInt(request.getSession().getAttribute("sessionStudentId").toString()));
+		
+		
+		if(stuInfo!=null)
+		{
+					application.setProgram(programDao.getProgram(Integer.parseInt(request.getParameter("program"))));
+					application.setTerm(request.getParameter("term"));
+	
+						applicationDao.addApplication(application);
+						models.put("studentInfo", stuInfo);
+						request.getSession().setAttribute("sessionStudentId",stuInfo.getStudentId());
+						
+			if(stuInfo.getAcademicRecords()!=null)
+			{
+				models.put("trans", stuInfo.getAcademicRecords().getTranscript());
+			}
+			return "/student/studentInformation";
+		}
+		
+		return "redirect:/student/home.html";
+	}
+	
+	@RequestMapping(value="/student/studentInformation.html",method=RequestMethod.POST)
+	public String addstudentInformation(@RequestParam MultipartFile transcript,HttpServletRequest request,ModelMap models )
+	{
+	
+		
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+		
+		usr=userDao.getUser(usr.getId());
+		
+		
+		int applicationId=Integer.parseInt(request.getSession().getAttribute("sessionApplicationId").toString());
+		Application application= applicationDao.getApplication(applicationId);
+		StudentInformation info=null;
+		try{
+		 info=studentInfoDao.getStudentInfo(Integer.parseInt(request.getSession().getAttribute("sessionStudentId").toString()));
+		}catch(Exception e)	{}
+		
+		
+		Boolean newApplication=Boolean.FALSE;
+		if(info!=null)
+		request.getSession().setAttribute("sessionStudentId",info.getStudentId());
+		else{
+			newApplication=Boolean.TRUE;
+			info=new StudentInformation();
+			}
+		
+		info.setFirstName(request.getParameter("firstName"));
+		info.setLastName(request.getParameter("lastName"));
+		info.setEmail(request.getParameter("email"));
+		info.setPhoneNumber(request.getParameter("phoneNumber"));
+		info.setCin(request.getParameter("cin"));
+		info.setGender(request.getParameter("gender"));
+	
+		try {
+			info.setDob(request.getParameter("dob"));
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		info.setCitizenship(request.getParameter("citizenship"));
+		info.setIsInternationalStudent(request.getParameter("hdnTofel").equals("1")?Boolean.TRUE:Boolean.FALSE);
+		info.setAcademicRecords(info.getAcademicRecords()==null? new StudentAcademicRecord():info.getAcademicRecords());
+	
+	
+		if(info.getIsInternationalStudent()==Boolean.TRUE){
+		info.getAcademicRecords().setTofel(Integer.parseInt(request.getParameter("tofel")));
+		}else
+		{
+			info.getAcademicRecords().setTofel(0);
+		}
+		info.getAcademicRecords().setGpa(Float.parseFloat(request.getParameter("gpa")));
+		info.getAcademicRecords().setGre(Integer.parseInt(request.getParameter("gre")));
+		
+		if(transcript.getOriginalFilename().trim().length()!=0 && transcript.getOriginalFilename().trim()!=null ){
+			String dirName="/WEB-INF/files/"+usr.getFirstName().trim()+"_"+usr.getLastName().trim();
+			dirName=context.getRealPath(dirName);
+			try {
+					if(! new File(dirName).exists())
+					{
+						new File(dirName).mkdir();
+					}
+						
+						dirName="/WEB-INF/files/"+usr.getFirstName().trim()+"_"+usr.getLastName().trim()+"/"+applicationId;
+						dirName=context.getRealPath(dirName);
+						if(! new File(dirName).exists())
+						{
+							new File(dirName).mkdir();
+						}
+					
+					transcript.transferTo( new File(new File(dirName),transcript.getOriginalFilename()));
+					info.getAcademicRecords().setTranscript(transcript.getOriginalFilename());
+				
+				
+			} catch (IllegalStateException | IOException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		info.setApplication(application);
+		info=studentInfoDao.addStudentInfo(info);
+		request.getSession().setAttribute("sessionStudentId",info.getStudentId());
+		
+//		application.setStudentInformation(info);
+//		applicationDao.addApplication(application);
+		if(newApplication)
+		{
+		usr.setStudentInformation(usr.getStudentInformation()==null?new ArrayList<StudentInformation>():usr.getStudentInformation());
+		usr.setStudentInformation(info);
+		userDao.registerUser(usr);
+		}
+		//		System.out.println(info.getApplications().get(0).getDept().getAdditionalFields().size());
+		int additionalFieldsCount=0,educationBackgroundCount=0;
+		if(info.getApplication().getDept().getAdditionalFields()!=null)
+			additionalFieldsCount=info.getApplication().getDept().getAdditionalFields().size();
+		if(info.getEducationalBackground()!=null)
+			educationBackgroundCount=info.getEducationalBackground().size();
+		models.put("additionalFieldsCount",additionalFieldsCount );
+		models.put("background",info.getEducationalBackground() );
+		models.put("educationBackgroundCount",educationBackgroundCount );
+		models.put("studentId", info.getStudentId());
+		
+		request.getSession().setAttribute("sessionStudentInfo", info.getStudentId());
+		
+	
+		return "student/educationalBackground";
+		
+		
+	}
+	
+
+	@RequestMapping(value="/student/educationalBackground.html",method=RequestMethod.GET)
+	public String addEducationalBackground(HttpServletRequest request,ModelMap models )
+	{
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		
+		if(usr==null)
+			return "redirect:/logout.html";
+		usr=userDao.getUser(usr.getId());
+		
+		StudentInformation info=null;
+		try{
+		 info=studentInfoDao.getStudentInfo(Integer.parseInt(request.getSession().getAttribute("sessionStudentId").toString()));
+		}catch(Exception e)	{}
+		
+		if(info!=null)
+			request.getSession().setAttribute("sessionStudentId",info.getStudentId());
+		else{
+				
+				info=new StudentInformation();
+				}
+//		info.setEducationalBackground(info.getEducationalBackground()==null?new ArrayList<StudentEducationalBackground>():info.getEducationalBackground());
+	
+		int additionalFieldsCount=0,educationBackgroundCount=0;
+		if(info.getApplication().getDept().getAdditionalFields()!=null)
+			additionalFieldsCount=info.getApplication().getDept().getAdditionalFields().size();
+		if(info.getEducationalBackground()!=null)
+			educationBackgroundCount=info.getEducationalBackground().size();
+		
+		models.put("additionalFieldsCount",additionalFieldsCount );
+		models.put("background",info.getEducationalBackground() );
+		models.put("educationBackgroundCount",educationBackgroundCount );
+		models.put("studentId", info.getStudentId());
+		
+		
+		
+		request.getSession().setAttribute("sessionStudentInfo", info.getStudentId());
+		return "student/educationalBackground";
+		
+	}
+	
+
+	
+	@RequestMapping(value="/student/educationalBackground.html",method=RequestMethod.POST)
+	public String addEducationalBackground(@ModelAttribute StudentEducationalBackground background,HttpServletRequest request,ModelMap models )
+	{
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+		
+		String univ[],degree[],major[],stDate[],edDate[];
+
+		univ=request.getParameterValues("DynamicTextBox1[]");
+		degree=request.getParameterValues("DynamicTextBox2[]");
+		major=request.getParameterValues("DynamicTextBox3[]");
+		stDate=request.getParameterValues("DynamicTextBox4[]");
+		edDate=request.getParameterValues("DynamicTextBox5[]");
+		
+		StudentInformation info=null;
+		try{
+		 info=studentInfoDao.getStudentInfo(Integer.parseInt(request.getSession().getAttribute("sessionStudentId").toString()));
+		}catch(Exception e)	{}
+		
+		if(info!=null)
+			request.getSession().setAttribute("sessionStudentId",info.getStudentId());
+		else{
+				info=new StudentInformation();
+		}
+		
+		info.setEducationalBackground(info.getEducationalBackground()==null?new ArrayList<StudentEducationalBackground>():info.getEducationalBackground());
+		if(univ!=null)
+		for(int i=0;i<univ.length;i++)
+		{
+			StudentEducationalBackground bg= new StudentEducationalBackground();
+			bg.setUniversity(univ[i]);
+			bg.setDegree(degree[i]);
+			bg.setMajor(major[i]);
+			
+			try 
+			{
+					bg.setStartDate(stDate[i]);
+					bg.setEndDate(edDate[i]);
+			}
+			catch (Exception e)	{
+					System.out.println("error-->"+e.getMessage());
+					models.put("errorMsg", "Enter Date in correct format..!!");
+					models.put("studentInfo", info);
+					return "student/educationalBackground";
+			}
+			info.getEducationalBackground().add(bg);
+			
+			
+		}
+		info=studentInfoDao.addStudentInfo(info);
+		request.getSession().setAttribute("sessionApplicationId",request.getSession().getAttribute("sessionApplicationId"));
+		request.getSession().setAttribute("sessionStudentId", info.getStudentId());
+		try{
+			int applicationId=Integer.parseInt(request.getSession().getAttribute("sessionApplicationId").toString());
+			Application application= applicationDao.getApplication(applicationId);
+			
+			if(request.getParameter("SaveContinue")!=null)
+			{
+				if(application.getDept().getAdditionalFields().size()!=0)
+				{
+					List<StudentAdditionalRecords> records=new ArrayList<StudentAdditionalRecords>();
+					if(application.getAdditionalRecords().size()==0)
+					{
+					
+						for (DepartmentAdditionalFields field : application.getDept().getAdditionalFields()) 
+						{
+							StudentAdditionalRecords record= new StudentAdditionalRecords();
+							record.setAdditionalField(field);
+							record.setApplication(application);
+							record.setFieldValue("");
+							record=studentAdditionalRecordDao.addRecords(record);
+							records.add(record);
+							
+						}
+						application.setAdditionalRecords(records);
+						applicationDao.addApplication(application);
+					}else
+					{
+						if(application.getAdditionalRecords().size()!=application.getDept().getAdditionalFields().size() &&
+								application.getAdditionalRecords().size()< application.getDept().getAdditionalFields().size())
+						{
+							records=application.getAdditionalRecords();
+							List<StudentAdditionalRecords>	recordsRef=application.getAdditionalRecords();
+							for (DepartmentAdditionalFields field : application.getDept().getAdditionalFields()) 
+							{
+								Boolean exist=Boolean.FALSE;
+								for (StudentAdditionalRecords record : recordsRef) 
+								{
+									if(field.getFieldName()==record.getAdditionalField().getFieldName())
+									{
+										exist=Boolean.TRUE;
+										break;	
+									}
+								}
+								if(!exist)
+								{
+									StudentAdditionalRecords rec= new StudentAdditionalRecords();
+									rec.setAdditionalField(field);
+									rec.setApplication(application);
+									rec.setFieldValue("");
+									rec=studentAdditionalRecordDao.addRecords(rec);
+									records.add(rec);
+								}
+									
+							}
+							application.setAdditionalRecords(records);
+							applicationDao.addApplication(application);
+						}
+					}
+					
+				
+				}
+				return "redirect:/student/addAdditionalRequirement.html";
+			}
+			else if(request.getParameter("Submit")!=null)
+			{
+					application.setStatus(appStatusDao.getApplicationStatus( appStatus.New.getValue()));
+					application.setSubmittedOn(new Date());
+					applicationDao.addApplication(application);
+					request.getSession().setAttribute("sessionStudentId",null);
+					request.getSession().setAttribute("sessionApplicationId",null);
+				
+				}
+				else if(request.getParameter("Save")!=null){}
+		}catch(Exception e)
+		{
+			System.out.println("error-->"+e.getMessage());
+			models.put("errorMsg", "Something went wrong. Try again..!!");
+			models.put("studentInfo", info);
+			return "student/educationalBackground";
+			
+		}
+			return "redirect:/student/viewApplications.html";
+		
+	
+		
+	}
+	
+	@RequestMapping(value="/student/addAdditionalRequirement.html",method=RequestMethod.GET)
+	public String addAdditionalRequirement(HttpServletRequest request,ModelMap models )
+	{
+		
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+		
+				
+		StudentInformation info=null;
+		try{
+		 info=studentInfoDao.getStudentInfo(Integer.parseInt(request.getSession().getAttribute("sessionStudentId").toString()));
+		}catch(Exception e)	{}
+		
+		if(info!=null)
+			request.getSession().setAttribute("sessionStudentId",info.getStudentId());
+		else{
+				info=new StudentInformation();
+		}
+		
+		int applicationId=Integer.parseInt(request.getSession().getAttribute("sessionApplicationId").toString());
+		Application application= applicationDao.getApplication(applicationId);
+		if(application.getAdditionalRecords().size()!=0)
+		{
+			//models.put("fields", application.getDept().getAdditionalFields());
+			models.put("records", application.getAdditionalRecords());
+			return "student/addAdditionalRequirement";
+		}
+		
+		
+		return "redirect:/student/viewApplications.html";
+	}
+	
+	@RequestMapping(value="/student/addAdditionalRequirement.html",method=RequestMethod.POST)
+	public String addAdditionalRequirement(@RequestParam MultipartFile file[],HttpServletRequest request,ModelMap models )
+	{
+		
+		String number[], text[];
+		number=request.getParameterValues("number[]");
+		text=request.getParameterValues("text[]");
+		List<MultipartFile> files = ((DefaultMultipartHttpServletRequest) request).getFiles("file[]");
+		
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+		
+		usr=userDao.getUser(usr.getId());
+		
+		StudentInformation info=null;
+		try{
+		 info=studentInfoDao.getStudentInfo(Integer.parseInt(request.getSession().getAttribute("sessionStudentId").toString()));
+		}catch(Exception e)	{}
+		
+		if(info!=null)
+			request.getSession().setAttribute("sessionStudentId",info.getStudentId());
+		else{
+				info=new StudentInformation();
+		}
+		
+		int applicationId=Integer.parseInt(request.getSession().getAttribute("sessionApplicationId").toString());
+		Application application= applicationDao.getApplication(applicationId);
+		List<StudentAdditionalRecords> records=application.getAdditionalRecords();
+		
+		if(application.getDept().getAdditionalFields().size()!=0)
+		{
+			int nCt=0, tCt=0,fCt=0;
+			for(int i=0;i<records.size();i++)
+			{
+				if(records.get(i).getAdditionalField().getFieldValueType().equals("Number"))
+				{
+					if(nCt<number.length )
+					{
+						records.get(i).setFieldValue(number[nCt]);
+					}
+					nCt=nCt+1;
+				}
+				else if(records.get(i).getAdditionalField().getFieldValueType().equals("Text"))
+				{
+					if(tCt<text.length )
+					{
+						records.get(i).setFieldValue(text[tCt]);
+					}
+					tCt=tCt+1;
+				}
+				else if(records.get(i).getAdditionalField().getFieldValueType().equals("File"))
+				{
+					if(fCt<files.size() && files.get(fCt).getOriginalFilename().trim()!=null && files.get(fCt).getOriginalFilename().trim().length()!=0)
+					{
+						String dirName="/WEB-INF/files/"+usr.getFirstName().trim()+"_"+usr.getLastName().trim();
+						dirName=context.getRealPath(dirName);
+						try 
+						{
+							if(! new File(dirName).exists())
+							{
+								new File(dirName).mkdir();
+							}
+							
+							
+							dirName="/WEB-INF/files/"+usr.getFirstName().trim()+"_"+usr.getLastName().trim()+"/"+applicationId;
+							dirName=context.getRealPath(dirName);
+							if(! new File(dirName).exists())
+							{
+								new File(dirName).mkdir();
+							}
+							
+							files.get(fCt).transferTo( new File(new File(dirName),files.get(fCt).getOriginalFilename()));
+							records.get(i).setFieldValue(files.get(fCt).getOriginalFilename());
+							
+						} catch (Exception  e) 
+						{
+							e.printStackTrace();
+						}
+					}
+					fCt=fCt+1;
+				}
+				studentAdditionalRecordDao.addRecords(records.get(i));
+			}
+		}
+		if(request.getParameter("Submit")!=null)
+		{
+			application.setStatus(appStatusDao.getApplicationStatus( appStatus.New.getValue()));
+			application.setSubmittedOn(new Date());
+			application=applicationDao.addApplication(application);
+			request.getSession().setAttribute("sessionStudentId",null);
+			request.getSession().setAttribute("sessionApplicationId",null);
+		}
+		return "redirect:/student/viewApplications.html";
+		
+	}
+	
+	@RequestMapping(value="/student/removeFile/{id}.html",method=RequestMethod.GET)
+	public String removeFile(@PathVariable Integer id,HttpServletRequest request,ModelMap models )
+	{
+		StudentAdditionalRecords rec=	studentAdditionalRecordDao.getRecords(id);
+		rec.setFieldValue("");
+		studentAdditionalRecordDao.addRecords(rec);
+		
+		return "redirect:/student/addAdditionalRequirement.html";
+	}
+	
+	@RequestMapping(value="/student/deleteEducationalBackground.html",method=RequestMethod.GET)
+	public String deleteEducationalBackground(@RequestParam Integer backgroundId,HttpServletRequest request,ModelMap models )
+	{
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+		
+		
+		StudentInformation info=null;
+		try{
+		 info=studentInfoDao.getStudentInfo(Integer.parseInt(request.getSession().getAttribute("sessionStudentId").toString()));
+		}catch(Exception e)	{}
+		
+		if(info!=null)
+			request.getSession().setAttribute("sessionStudentId",info.getStudentId());
+		else{
+				info=new StudentInformation();
+		}
+		
+		for(int i =0;i<info.getEducationalBackground().size();i++)
+		{
+			
+			if(info.getEducationalBackground().get(i).getId()==backgroundId)
+			{
+				info.getEducationalBackground().remove(i);
+				
+				break;
+			}
+		}
+	
+		request.getSession().setAttribute("sessionStudentInfo", studentInfoDao.addStudentInfo(info));
+		educationBackgroundDao.deleteStudentEducationalBackground(backgroundId);
+		
+		return "redirect:/student/educationalBackground.html";
+	}
+	
+	@RequestMapping(value="/student/AddStudentInfo.html",method=RequestMethod.POST)
+	public String addStudentInfo(@ModelAttribute StudentInformation info,ModelMap models,HttpServletRequest request )
+	{
+		
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+		
+		String univ[],degree[],major[],stDate[],edDate[];
+
+		univ=request.getParameterValues("DynamicTextBox1[]");
+		degree=request.getParameterValues("DynamicTextBox2[]");
+		major=request.getParameterValues("DynamicTextBox3[]");
+		stDate=request.getParameterValues("DynamicTextBox4[]");
+		edDate=request.getParameterValues("DynamicTextBox5[]");
+		
+		
+		try {
+			info.setDob(request.getParameter("dob"));
+		} catch (Exception e1) 
+		{
+			System.out.println("error-->"+e1.getMessage());
+			models.put("errorMsg", "Enter Date in correct format..!!");
+			models.put("studentInfo", info);
+			return "student/addStudentInfo";
+		
+		}
+		StudentInformation s= new StudentInformation();
+		info.setStudentId(s.getStudentId());
+		info.setIsInternationalStudent(request.getParameter("hdnTofel").equals("1")?Boolean.TRUE:Boolean.FALSE);
+		
+		info.setAcademicRecords(new StudentAcademicRecord());
+		info.getAcademicRecords().setGpa(Float.parseFloat(request.getParameter("gpa")));
+		if(info.getIsInternationalStudent())
+		{
+			info.getAcademicRecords().setTofel(Integer.parseInt(request.getParameter("tofel")));
+		}
+		info.setEducationalBackground(new ArrayList<StudentEducationalBackground>());
+		
+		for(int i=0;i<univ.length;i++)
+		{
+			StudentEducationalBackground background= new StudentEducationalBackground();
+			background.setUniversity(univ[i]);
+			background.setDegree(degree[i]);
+			background.setMajor(major[i]);
+			
+			try {
+				background.setStartDate(stDate[i]);
+				background.setEndDate(edDate[i]);
+			} catch (Exception e) {
+				System.out.println("error-->"+e.getMessage());
+				models.put("errorMsg", "Enter Date in correct format..!!");
+				models.put("studentInfo", info);
+				return "student/addStudentInfo";
+			}
+			info.getEducationalBackground().add(background);
+			
+			
+		}
+		/*----------------------------------------
+		info.setUser(userDao.getUser(usr.getId()));
+		------------------------------------------------------------------*/
+		info=studentInfoDao.addStudentInfo(info);
+		request.getSession().setAttribute("sessionStudentInfo", info);
+		return "/student/home";
+	}
+	
+		
+	@RequestMapping(value="/student/viewApplications.html",method=RequestMethod.GET)
+	public String viewApplications(ModelMap models,HttpServletRequest request )
+	{
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+		
+		usr=userDao.getUser(usr.getId());
+		
+		List<StudentInformation> info=usr.getStudentInformation();
+		models.put("info", info==null?new ArrayList<StudentInformation>():info);
+		
+		request.getSession().setAttribute("sessionStudentId",null);
+		request.getSession().setAttribute("sessionApplicationId",null);
+		
+		return "/student/viewApplications";
+	}
+	
+	@RequestMapping(value="/student/viewApplicationDetails/{id}.html")
+	public String viewApplicationDetails(@PathVariable Integer id,ModelMap models,HttpServletRequest request)
+	{
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+		
+	//	StudentInformation info=new StudentInformation();
+		models.put("stuInfo",studentInfoDao.getStudentInfo(id) );
+		//models.put("studentId", id);
+		//models.put("appDetails", applicationDao.getApplication(id));
+		return "/student/viewApplicationDetails";
+	}
+	
+	@RequestMapping(value="/student/data.html")
+	public String viewData(ModelMap models,HttpServletRequest request)
+	{
+		User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";
+		
+		usr=userDao.getUser(usr.getId());
+		
+//		StudentInformation info=studentInfoDao.getStudentInfo(id);
+	//List<Application> a= applicationDao.getApplications();
+		models.put("usr",usr );
+		//models.put("a",a );	
+		return "student/data";
+	}
+	
+	@RequestMapping(value="/student/dataApplication/{id}.html")
+	public String viewApplicationData(@PathVariable Integer id,ModelMap models,HttpServletRequest request)
+	{
+	/*	User usr=(User) request.getSession().getAttribute("LoggedInUserInformation");
+		if(usr==null)
+			return "redirect:/logout.html";*/
+		
+		
+	Application app= applicationDao.getApplication(id);
+		
+		models.put("app",app );	
+		return "student/dataApplication";
+	}
+	
+
+	
+}

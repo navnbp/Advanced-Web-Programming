@@ -1,0 +1,80 @@
+package cs520.model;
+
+import java.io.Serializable;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+@Entity
+@Table(name="student_academic_record")
+public class StudentAcademicRecord implements Serializable{
+
+	private static final long serialVersionUID = 1L;
+	
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@Column(name="academic_record_id")
+	private int id;
+	
+	@Column( nullable=true)
+	private int tofel;
+	
+	@Column( nullable=true)
+	private int gre;
+	
+	@Column( nullable=false)
+	private float gpa;
+	
+	@Column( nullable=false)
+	private String transcript;
+	
+	public StudentAcademicRecord() {}
+
+
+	
+	public int getId() {
+		return id;
+	}
+
+	public void setId(int id) {
+		this.id = id;
+	}
+
+	public int getTofel() {
+		return tofel;
+	}
+
+	public void setTofel(int tofel) {
+		this.tofel = tofel;
+	}
+
+	public int getGre() {
+		return gre;
+	}
+
+	public void setGre(int gre) {
+		this.gre = gre;
+	}
+
+	public float getGpa() {
+		return gpa;
+	}
+
+	public void setGpa(float gpa) {
+		this.gpa = gpa;
+	}
+
+	public String getTranscript() {
+		return transcript;
+	}
+
+	public void setTranscript(String transcript) {
+		this.transcript = transcript;
+	}
+	
+	
+}

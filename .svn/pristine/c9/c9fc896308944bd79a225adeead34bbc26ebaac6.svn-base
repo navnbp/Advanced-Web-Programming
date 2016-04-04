@@ -1,0 +1,163 @@
+package cs520.web.controller;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.ModelMap;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import cs520.model.Role;
+import cs520.model.User;
+import cs520.model.UserRole;
+import cs520.model.dao.RoleDao;
+import cs520.model.dao.UserDao;
+import cs520.model.dao.jpa.RoleDaoImpl;
+import cs520.model.dao.jpa.UserDaoImpl;
+import cs520.web.validator.UserValidator;
+
+@Controller
+@Scope("session")
+public class UserController {
+	
+	@Autowired
+    private UserDao userDao;
+	
+	@Autowired
+	private RoleDao roleDao;
+	
+	@Autowired
+	private UserValidator userValidator;
+	 
+	    @RequestMapping("/users.html")
+	    public String users( ModelMap models )
+	    {
+	        models.put( "users", userDao.getUsers() );
+	        return "users";
+	    }
+	    
+	    @RequestMapping(value="/login.html",method=RequestMethod.GET)
+		public String login(ModelMap models)
+		{
+	    	models.put("user", new User());
+	    	return "login";
+		}
+
+	    @RequestMapping(value="/login.html",method=RequestMethod.POST)
+		public String login(@ModelAttribute User usr,ModelMap models,HttpServletRequest request)
+		{
+//	    	String emailPattern = "^[_A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@"  
+//					   + "[A-Za-z0-9-]";
+//			+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$
+//			Pattern  pattern = Pattern.compile(emailPattern);   
+//			Matcher  matcher = pattern.matcher(usr.getEmailId());  
+			User user= new User();
+			if (usr.getEmailId().trim().length()==0 || usr.getPwd().length()==0) 
+			{  
+				models.put("error", "Please Enter Details Correctly");
+				BeanUtils.copyProperties(new User(), usr);
+				 return "login";
+			}
+			else
+			{
+				user=userDao.getUserByEmailId(usr.getEmailId());
+				if(user ==null)
+				{
+					
+					models.put("error", "Email ID is not Registered..!! ");
+					BeanUtils.copyProperties(new User(), usr);
+					 return "login";
+				}
+				else if(user.getPwd().equals(usr.getPwd()))
+				{
+					user.setPwd("");
+					request.getSession().setAttribute("LoggedInUserInformation", user);
+
+					if(user.getRole().getRoleName().equals(UserRole.ADMIN.toString()))
+					{
+						return "redirect:/admin/viewDepartment.html";
+					}
+					else if(user.getRole().getRoleName().equals(UserRole.STAFF.toString()))
+					{
+						return "redirect:/staff/home.html";
+					}
+					else
+					{
+						return "redirect:/student/home.html";
+					}
+				}
+				else
+				{
+					models.put("error", "Incorect Email ID  and Password");
+					BeanUtils.copyProperties(new User(), usr);
+					 return "login";
+				}
+			}
+	    	
+		}
+	    
+		@RequestMapping(value="/register.html",method=RequestMethod.GET)
+		public String Register(ModelMap models)
+		{
+			
+			models.put("user", new User());
+			return "register";
+		}
+		
+		@RequestMapping(value="/register.html",method=RequestMethod.POST)
+		public String Register(@ModelAttribute User usr,ModelMap models,BindingResult result)
+		{
+			/*String emailPattern = "^[_A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@"  
+					   + "[A-Za-z0-9-]"; */ 
+//			+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$
+//			Pattern  pattern = Pattern.compile(emailPattern);   
+//			Matcher  matcher = pattern.matcher(usr.getEmailId());  
+			if(usr.getEmailId().trim().length()!=0)
+			usr.setEmailId(usr.getEmailId().toLowerCase());
+			usr.setRole(roleDao.getRoleByName(UserRole.STUDENT.toString()));
+			
+			if (usr.getFirstName().trim().length()==0 || usr.getLastName().trim().length()==0|| usr.getEmailId().trim().length()==0 || usr.getPwd().length()==0) 
+			{  
+				models.put("error", "Please Enter Details Correctly");
+				BeanUtils.copyProperties(new User(), usr);
+				 return "register";
+			}
+			else if(userDao.checkIfEmailExists(usr.getEmailId()))
+			{
+				models.put("error", "Email ID is already registered..!!");
+				BeanUtils.copyProperties(new User(), usr);
+				return "register";
+			}
+			else
+			userDao.registerUser(usr);
+			
+			return "redirect:/student/home.html";
+		}
+		
+	/*	@RequestMapping(value="/register.html",method=RequestMethod.POST)
+		public String Register(ModelMap models,HttpServletRequest request)
+		{
+			
+			if(request.getParameter("firstName")!=null && request.getParameter("lastName")!=null && request.getParameter("emailId")!=null && request.getParameter("pwd")!=null )
+			{
+			
+				if(userDao.checkIfEmailExists(request.getParameter("emailId")))
+				{
+					models.put("error", "Email ID is already registered..!!");
+					return "register";
+				}	
+				else
+					userDao.registerUser(new User(request.getParameter("firstName"), request.getParameter("lastName"),request.getParameter("emailId").toLowerCase() ,request.getParameter("pwd"), roleDao.getRoleByName(userRole.STUDENT.toString())));
+				return "redirect:/student/home.html";
+			}
+			models.put("error", "Please Enter All Details");
+			return "register";
+		}*/
+
+}

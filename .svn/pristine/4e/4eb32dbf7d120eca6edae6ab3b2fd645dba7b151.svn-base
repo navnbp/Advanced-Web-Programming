@@ -1,0 +1,23 @@
+drop table IF EXISTS  application_student_additional_records CASCADE ;
+drop table IF EXISTS users CASCADE ;
+drop table IF EXISTS  student_info_student_educational_background CASCADE ;
+drop table IF EXISTS  student_info_student_additional_records CASCADE ;
+drop table IF EXISTS  student_info_application CASCADE ;
+drop table IF EXISTS  student_info CASCADE ;
+drop table IF EXISTS  student_educational_background CASCADE ;
+drop table IF EXISTS  student_additional_records CASCADE ;
+drop table IF EXISTS  student_academic_record CASCADE ;
+drop table IF EXISTS  role CASCADE ;
+drop table IF EXISTS  program CASCADE ;
+drop table IF EXISTS  department_department_additional_filed CASCADE ;
+drop table IF EXISTS  department_additional_filed CASCADE ;
+drop table IF EXISTS  department_program CASCADE ;
+drop table IF EXISTS  department CASCADE ;
+drop table IF EXISTS application_status_update_history CASCADE ;
+drop table IF EXISTS  application_status CASCADE ;
+drop table IF EXISTS  application_application_status_update_history CASCADE ;
+drop table IF EXISTS  application CASCADE ;
+
+
+
+

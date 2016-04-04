@@ -1,0 +1,14 @@
+package cs520.web.controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+public class StudentInformationController {
+
+	@RequestMapping(value="/student/home.html")
+	public String studentHome()
+	{
+		return "/student/home";
+	}
+}
